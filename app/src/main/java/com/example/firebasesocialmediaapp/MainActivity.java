@@ -15,6 +15,7 @@ import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.FirebaseDatabase;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -88,6 +89,11 @@ public class MainActivity extends AppCompatActivity {
                 if (task.isSuccessful()) {
 
                     Toast.makeText(MainActivity.this,"Signing Up Successful",Toast.LENGTH_SHORT).show();
+
+                    FirebaseDatabase.getInstance().getReference().child("My_Users").child
+                            (task.getResult().getUser().getUid()).child("username")
+                                    .setValue(edtUserName.getText().toString());
+
                     // Transition to next Activity
                     transitionToSocialMediaActivity();
                 }
@@ -121,6 +127,6 @@ public class MainActivity extends AppCompatActivity {
 
         Intent A=new Intent(MainActivity.this,SocialMediaActivity.class);
         startActivity(A);
-
+        finish();
     }
 }
