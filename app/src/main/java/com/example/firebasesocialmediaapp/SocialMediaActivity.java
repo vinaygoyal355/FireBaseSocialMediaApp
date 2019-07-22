@@ -21,6 +21,7 @@ import android.provider.MediaStore;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -28,8 +29,10 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.ChildEventListener;
@@ -41,10 +44,11 @@ import com.google.firebase.storage.UploadTask;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
-public class SocialMediaActivity extends AppCompatActivity {
+public class SocialMediaActivity extends AppCompatActivity implements AdapterView.OnItemClickListener {
 
     private FirebaseAuth mAuth;
     private Button btnCreatePost;
@@ -55,6 +59,8 @@ public class SocialMediaActivity extends AppCompatActivity {
     private String imageIdentifier;
     private ArrayList<String> userNames;
     private ArrayAdapter adapter;
+    private ArrayList<String> uids;
+    private String imageDownloadLink;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,9 +74,13 @@ public class SocialMediaActivity extends AppCompatActivity {
         postImageView=findViewById(R.id.postImageView);
         usersListView=findViewById(R.id.usersListView);
 
+        uids=new ArrayList<>();
+
         userNames=new ArrayList<>();
         adapter=new ArrayAdapter(this,android.R.layout.simple_list_item_1,userNames);
         usersListView.setAdapter(adapter);
+
+        usersListView.setOnItemClickListener(this);
 
         btnCreatePost.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -129,6 +139,13 @@ public class SocialMediaActivity extends AppCompatActivity {
 
             mAuth.signOut();
             transitionToSignUpActivity();
+
+        }
+
+        else if(item.getItemId()==R.id.viewPost){
+
+            Intent A=new Intent(SocialMediaActivity.this,ViewSentPostActivity.class);
+            startActivity(A);
 
         }
 
@@ -208,6 +225,7 @@ public class SocialMediaActivity extends AppCompatActivity {
                         @Override
                         public void onChildAdded(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
 
+                            uids.add(dataSnapshot.getKey());
                             String username= (String) dataSnapshot.child("username").getValue();
                             userNames.add(username);
                             adapter.notifyDataSetChanged();
@@ -237,6 +255,21 @@ public class SocialMediaActivity extends AppCompatActivity {
                         }
                     });
 
+                    taskSnapshot.getMetadata().getReference().getDownloadUrl().addOnCompleteListener(new OnCompleteListener<Uri>() {
+                        @Override
+                        public void onComplete(@NonNull Task<Uri> task) {
+
+                            if(task.isSuccessful()){
+
+                                imageDownloadLink=task.getResult().toString();
+
+                            }
+                            else{
+                                Toast.makeText(SocialMediaActivity.this,"Error in getting image url",Toast.LENGTH_SHORT).show();
+                            }
+
+                        }
+                    });
                 }
             });
         }
@@ -248,4 +281,34 @@ public class SocialMediaActivity extends AppCompatActivity {
 
     }
 
+    @Override
+    public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+
+        if(edtDes.getText().toString().equals("")){
+            Toast.makeText(SocialMediaActivity.this,"Please enter a description first",Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        HashMap<String,String> dataMap=new HashMap<>();
+
+        dataMap.put("fromWhom",FirebaseAuth.getInstance().getCurrentUser().getDisplayName());
+        dataMap.put("imageIdentifier",imageIdentifier);
+        dataMap.put("imageLink",imageDownloadLink);
+        dataMap.put("des",edtDes.getText().toString());
+
+        FirebaseDatabase.getInstance().getReference().child("My_Users").child(uids.get(i))
+                .child("Received_Post").push().setValue(dataMap).addOnCompleteListener(new OnCompleteListener<Void>() {
+            @Override
+            public void onComplete(@NonNull Task<Void> task) {
+
+                if(task.isSuccessful()){
+                    Toast.makeText(SocialMediaActivity.this,"Data is sent",Toast.LENGTH_SHORT).show();
+                }
+                else{
+                    Toast.makeText(SocialMediaActivity.this,"Error in sending data",Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+    }
 }
